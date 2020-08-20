@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.util.PermutedFrontCodedStringList;
 import org.softwareheritage.graph.Node;
 import org.softwareheritage.graph.SwhPID;
+import org.softwareheritage.graph.backend.NodeIdMap;
 import org.softwareheritage.graph.backend.NodeTypesMap;
 
 import java.io.IOException;

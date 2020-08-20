@@ -24,7 +24,7 @@ public class App {
 
         readInputRevisions(inputRevisionPath, (revision -> {
             Consumer<String> diffCallback = path -> {
-                System.out.println(String.format("%s,%s;%d", revision.getSwhPid().getSwhPID(),
+                System.out.println(String.format("%s;%s;%d", revision.getSwhPid().getSwhPID(),
                         path, revision.getTimestamp()));
             };
 
@@ -104,9 +104,7 @@ public class App {
     public static void main(String[] args) throws Exception {
         String graphPath = args[0];
         String inputRevisionPath = args[1];
-//        String inputRevisionPath = "/Users/kevin/Development/swh_extract/swhdiff/revisions.txt";
-//        String graphPath = "/Users/kevin/Development/swh_extract/python3kcompress/python3k";
-//        new App().execute(graphPath, inputRevisionPath);
-        new App().sanityCheck(graphPath, inputRevisionPath);
+        new App().execute(graphPath, inputRevisionPath);
+//        new App().sanityCheck(graphPath, inputRevisionPath);
     }
 }

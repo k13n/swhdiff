@@ -4,6 +4,8 @@ import it.unimi.dsi.big.webgraph.BVGraph;
 import it.unimi.dsi.big.webgraph.labelling.ArcLabelledImmutableGraph;
 import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import org.softwareheritage.graph.SwhPID;
+import org.softwareheritage.graph.backend.NodeIdMap;
+
 import java.lang.System;
 import java.io.IOException;
 
