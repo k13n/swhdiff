@@ -83,6 +83,167 @@ ORDER BY id;
 ```
 
 
+Q3: Compute the diff for a given (revision, parent revision) pair in SQL:
+
+```sql
+WITH RECURSIVE
+parent_child_commits(old_dir, new_dir, path, committer_date, commit_id) AS (
+  (
+    -- all commits that have a parent commit
+    SELECT
+      r1.directory AS old_dir,
+      r2.directory AS new_dir,
+      '' COLLATE "C" AS path,
+      r2.committer_date,
+      r2.id AS commit_id
+    FROM
+      revision_history rh
+      JOIN revision r1 ON r1.id = rh.parent_id
+      JOIN revision r2 ON r2.id = rh.id
+    WHERE
+      r1.id = '\x155c64cafd23684d551a2a92746afdb68a09a907'::sha1_git AND
+      r2.id = '\x01714ff5fd94a846f7dc3456a52e6f2dcd36ca0b'::sha1_git
+  )
+),
+base(old_dir, new_dir, path, committer_date, commit_id) AS (
+  SELECT * FROM parent_child_commits
+  UNION ALL (
+    -- dirty hack for PostgreSQL since base table may occur only once
+    WITH base_inner AS (
+      SELECT * FROM base
+    )
+    -- (old_dir, new_dir) represent the same directory in the two
+    -- snapshots and they contain a directory/file that has changed
+    SELECT
+      ded1.target AS old_dir,
+      ded2.target AS new_dir,
+      b.path || '/' || convert_from(ded2.Name, 'UTF-8') AS path,
+      b.committer_date,
+      b.commit_id
+    FROM
+      base_inner b
+      JOIN directory d1 ON d1.id = b.old_dir
+      JOIN directory d2 ON d2.id = b.new_dir
+      JOIN directory_entry_dir ded1 ON ded1.id = ANY(d1.dir_entries)
+      JOIN directory_entry_dir ded2 ON ded2.id = ANY(d2.dir_entries)
+    WHERE
+      b.old_dir IS NOT NULL
+      AND b.new_dir IS NOT NULL
+      AND ded1.Name = ded2.Name
+      AND ded1.Id != ded2.Id
+    UNION ALL
+    -- (NULL, new_dir) represents that new_dir was created in this
+    -- new commit. Collect all new files.
+    SELECT
+      NULL::sha1_git AS old_dir,
+      ded2.target AS new_dir,
+      b.path || '/' || convert_from(ded2.Name, 'UTF-8') AS path,
+      b.committer_date,
+      b.commit_id
+    FROM
+      base_inner b
+      JOIN directory d2 ON d2.id = b.new_dir
+      JOIN directory_entry_dir ded2 ON ded2.id = ANY(d2.dir_entries)
+    WHERE
+      b.old_dir IS NULL
+      OR NOT EXISTS (
+        SELECT *
+        FROM
+          directory d1
+          JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+        WHERE
+          d1.id = b.old_dir
+      )
+    UNION ALL
+    -- (old_dir, NULL) represents that old_dir was deleted in this
+    -- new commit. Collect all deleted files.
+    SELECT
+      ded1.target AS old_dir,
+      NULL::sha1_git AS new_dir,
+      b.path || '/' || convert_from(ded1.Name, 'UTF-8') AS path,
+      b.committer_date,
+      b.commit_id
+    FROM
+      base_inner b
+      JOIN directory d1 ON d1.id = b.old_dir
+      JOIN directory_entry_dir ded1 ON ded1.id = ANY(d1.dir_entries)
+    WHERE
+      b.new_dir IS NULL
+      OR NOT EXISTS (
+        SELECT *
+        FROM
+          directory d2
+          JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+        WHERE
+          d2.id = b.new_dir
+      )
+  )
+)
+SELECT DISTINCT *
+FROM (
+  -- (path, commiter_date, commit_id, 'update') represents that path
+  -- was updated in commit_id at commit_date
+  SELECT
+    base.path || '/' || convert_from(def2.Name, 'UTF-8') AS path,
+    base.committer_date,
+    base.commit_id,
+    'update' as operation
+  FROM
+    base
+    JOIN directory d1 ON d1.id = base.old_dir
+    JOIN directory d2 ON d2.id = base.new_dir
+    JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+    JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+  WHERE
+    def1.Name = def2.Name
+    AND def1.Id != def2.Id
+  UNION ALL
+  -- (path, commiter_date, commit_id, 'create') represents that path
+  -- was created in commit_id at commit_date
+  SELECT
+    base.path || '/' || convert_from(def2.Name, 'UTF-8') AS path,
+    base.committer_date,
+    base.commit_id,
+    'create' as operation
+  FROM
+    base
+    JOIN directory d2 ON d2.id = base.new_dir
+    JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+  WHERE NOT EXISTS (
+      SELECT *
+      FROM
+        directory d1
+        JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+      WHERE
+        d1.id = base.old_dir
+        AND def2.Name = def1.Name
+  )
+  UNION ALL
+  -- (path, commiter_date, commit_id, 'delete') represents that path
+  -- was deleted in commit_id at commit_date
+  SELECT
+    base.path || '/' || convert_from(def1.Name, 'UTF-8') AS path,
+    base.committer_date,
+    base.commit_id,
+    'delete' as operation
+  FROM
+    base
+    JOIN directory d1 ON d1.id = base.old_dir
+    JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+  WHERE NOT EXISTS (
+      SELECT *
+      FROM
+        directory d2
+        JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+      WHERE
+        d2.id = base.new_dir
+        AND def1.Name = def2.Name
+  )
+) tmp
+ORDER BY tmp.committer_date, tmp.path;
+```
+
+
 ## Scripts
 
 Find the number of revisions in the compressed graph
