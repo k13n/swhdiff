@@ -86,8 +86,7 @@ public class Graph {
                 if (label == missing) {
                     System.err.println("Expected a label between nodes ("+srcNode+","+dst+")");
                 } else {
-                    String edgeLabel = new String(Base64.getDecoder().decode(labelMap.get(label).toString()));
-                    callback.accept(new LabelledEdge(srcNode, dst, edgeLabel));
+                    callback.accept(new LabelledEdge(srcNode, dst, label));
                 }
             }
         }
@@ -126,6 +125,11 @@ public class Graph {
 
     public SwhPID getSwhPID(long nodeId) {
         return nodeIdMap.getSwhPID(nodeId);
+    }
+
+
+    public String getLabel(int labelId) {
+        return new String(Base64.getDecoder().decode(labelMap.get(labelId).toString()));
     }
 
 

@@ -32,17 +32,20 @@ public class App {
                 long revRootDirId = fetchRootDirectory(revision.getNodeId());
                 var parents = fetchParentRevisions(revision.getSwhPid());
                 if (parents.isEmpty()) {
-                    differ.diff(revRootDirId, NULL_DIR, true, false, diffCallback);
+                    differ.diff(revRootDirId, NULL_DIR, diffCallback);
                 } else {
                     for (long parentRevId : parents) {
+                        // System.out.format("diff(rev: %s, par: %s)\n", graph.getSwhPID(revision.getNodeId()), graph.getSwhPID(parentRevId));
                         long parentRevRootDir = fetchRootDirectory(parentRevId);
-                        differ.diff(revRootDirId, parentRevRootDir, true, true, diffCallback);
+                        differ.diff(revRootDirId, parentRevRootDir, diffCallback);
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }));
+
+        graph.close();
     }
 
 
@@ -56,7 +59,9 @@ public class App {
                     long nodeId = graph.getNodeId(pid);
                     long timestamp = Long.parseLong(splits[1]);
                     revision = new Revision(pid, nodeId, timestamp);
-                } catch (IllegalArgumentException e) { }
+                } catch (IllegalArgumentException e) {
+                    System.out.println(e.getMessage());
+                }
                 if (revision != null) {
                     consumer.accept(revision);
                 }
@@ -66,8 +71,9 @@ public class App {
 
 
     private ArrayList<Long> fetchParentRevisions(SwhPID revisionPid) {
+        // in the compressed graph a revision points to its parent, not the other way around
         long revisionId = graph.getNodeId(revisionPid);
-        return graph.predecessors(revisionId, Optional.of(Node.Type.REV));
+        return graph.successors(revisionId, Optional.of(Node.Type.REV));
     }
 
 
