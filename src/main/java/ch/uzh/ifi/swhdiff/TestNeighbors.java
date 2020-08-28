@@ -14,35 +14,37 @@ class TestNeighbors {
     public static void main(String[] args) throws Exception {
         String path = args[0];
         long src = Long.parseLong(args[1]);
-        // long src = 200948;
-        // long src = 17341882;
-        long dst;
+//        long src = 200948;
+//        long src = 17341882;
 
         BVGraph graph1 = BVGraph.loadMapped(path);
-        ArcLabelledImmutableGraph graph2 = BitStreamArcLabelledImmutableGraph.loadOffline(path + "-labelled");
+        ArcLabelledImmutableGraph graph2 = BitStreamArcLabelledImmutableGraph.load(path + "-labelled");
         NodeIdMap nodeIdMap = new NodeIdMap(path, graph1.numNodes());
         PermutedFrontCodedStringList labelMap = (PermutedFrontCodedStringList) BinIO.loadObject(path + "-labels.fcl");
 
+        long dst;
         System.out.format("Source Node: %d (%s)\n\n", src, nodeIdMap.getSwhPID(src));
-
-        long startTime = System.currentTimeMillis();
 
         System.out.println("BVGraph:");
         int totalbv = 0;
+        long startTime = System.currentTimeMillis();
         var it1 = graph1.successors(src);
         while ((dst = it1.nextLong()) >= 0) {
             System.out.format("%d (%s)\n", dst, nodeIdMap.getSwhPID(dst));
             totalbv++;
         }
+        long endTime = System.currentTimeMillis();
         System.out.format("total: %d\n", totalbv);
+        System.out.format("Runtime: %dms\n", (endTime - startTime));
 
         System.out.println("\nArcLabelledImmutableGraph:");
+        startTime = System.currentTimeMillis();
         int totallabel = 0;
-        var it = graph2.nodeIterator(src).successors();
-        while ((dst = it.nextLong()) >= 0) {
+        var it2 = graph2.successors(src);
+        while ((dst = it2.nextLong()) >= 0) {
             String label = "<missing>";
-            int labelId = (int) it.label().get();
-            int missing = (1 << it.label().fixedWidth()) - 1;
+            int labelId = (int) it2.label().get();
+            int missing = (1 << it2.label().fixedWidth()) - 1;
             if (labelId != missing) {
                 label = new String(Base64.getDecoder().decode(labelMap.get(labelId).toString()));
             }
@@ -50,10 +52,9 @@ class TestNeighbors {
                     labelId, label);
             totallabel++;
         }
+        endTime = System.currentTimeMillis();
         System.out.format("total: %d\n", totallabel);
+        System.out.format("Runtime: %dms\n", (endTime - startTime));
 
-        long endTime = System.currentTimeMillis();
-        System.out.format("\n\nRuntime: %dms\n", (endTime - startTime));
     }
 }
-
