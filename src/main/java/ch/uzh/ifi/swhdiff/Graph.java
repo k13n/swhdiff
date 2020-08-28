@@ -2,7 +2,6 @@ package ch.uzh.ifi.swhdiff;
 
 import it.unimi.dsi.big.webgraph.BVGraph;
 import it.unimi.dsi.big.webgraph.labelling.ArcLabelledImmutableGraph;
-import it.unimi.dsi.big.webgraph.labelling.ArcLabelledNodeIterator;
 import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.util.PermutedFrontCodedStringList;
@@ -35,7 +34,7 @@ public class Graph {
     public Graph(String path) throws IOException, ClassNotFoundException {
         graph = BVGraph.loadMapped(path);
         graphTransposed = BVGraph.loadMapped(path + "-transposed");
-        graphLabelled = BitStreamArcLabelledImmutableGraph.loadOffline(path + "-labelled");
+        graphLabelled = BitStreamArcLabelledImmutableGraph.load(path + "-labelled");
         nodeTypesMap = new NodeTypesMap(path);
         labelMap = (PermutedFrontCodedStringList) BinIO.loadObject(path + "-labels.fcl");
         nodeIdMap = new NodeIdMap(path, graph.numNodes());
@@ -77,7 +76,7 @@ public class Graph {
 
 
     public void successorsLabelled(long srcNode, Optional<Node.Type> nodeType, Consumer<LabelledEdge> callback) {
-        ArcLabelledNodeIterator.LabelledArcIterator it = graphLabelled.nodeIterator(srcNode).successors();
+        var it = graphLabelled.successors(srcNode);
         long dst;
         while ((dst = it.nextLong()) >= 0) {
             if (nodeType.isEmpty() || nodeTypesMap.getType(dst) == nodeType.get()) {

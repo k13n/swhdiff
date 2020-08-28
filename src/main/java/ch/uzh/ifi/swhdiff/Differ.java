@@ -134,8 +134,7 @@ public class Differ {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < depth; ++i) {
             sb.append("/");
-            sb.append(buffer[i]);
-            String edgeLabel = graph.getLabel(buffer[i]);
+            sb.append(graph.getLabel(buffer[i]));
         }
         callback.accept(sb.toString());
     }
