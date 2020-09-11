@@ -3,12 +3,12 @@ package ch.uzh.ifi.swhdiff;
 import org.softwareheritage.graph.Node;
 import org.softwareheritage.graph.SwhPID;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -18,14 +18,21 @@ import static ch.uzh.ifi.swhdiff.Differ.NULL_DIR;
 public class App {
     private Graph graph;
 
-    void execute(String graphPath, String inputRevisionPath) throws IOException, ClassNotFoundException {
+
+    void execute(String graphPath, String inputRevisionPath, String outputPath) throws IOException, ClassNotFoundException {
+        FileWriter fw = new FileWriter(outputPath);
+
         graph = new Graph(graphPath);
         Differ differ = new Differ(graph);
 
         readInputRevisions(inputRevisionPath, (revision -> {
             Consumer<String> diffCallback = path -> {
-                System.out.println(String.format("%s;%s;%d", revision.getSwhPid().getSwhPID(),
-                        path, revision.getTimestamp()));
+                try {
+                    path = sanitizePath(path);
+                    fw.write(String.format("%s;%d;%s\n", path, revision.getTimestamp(), revision.getSwhPid().toString()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             };
 
             try {
@@ -35,7 +42,7 @@ public class App {
                     differ.diff(revRootDirId, NULL_DIR, diffCallback);
                 } else {
                     for (long parentRevId : parents) {
-                        // System.out.format("diff(rev: %s, par: %s)\n", graph.getSwhPID(revision.getNodeId()), graph.getSwhPID(parentRevId));
+//                        System.out.format("diff(rev: %s, par: %s)\n", graph.getSwhPID(revision.getNodeId()), graph.getSwhPID(parentRevId));
                         long parentRevRootDir = fetchRootDirectory(parentRevId);
                         differ.diff(revRootDirId, parentRevRootDir, diffCallback);
                     }
@@ -46,8 +53,16 @@ public class App {
         }));
 
         graph.close();
+        fw.close();
     }
 
+
+    private String sanitizePath(String path) {
+        // drop semicolons since we output a CSV file with ; as delimiter
+        path = path.replace(";", "");
+        path = path.replace("\n", "");
+        return path;
+    }
 
     private void readInputRevisions(String fileName, Consumer<Revision> consumer) throws IOException {
         try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
@@ -60,7 +75,7 @@ public class App {
                     long timestamp = Long.parseLong(splits[1]);
                     revision = new Revision(pid, nodeId, timestamp);
                 } catch (IllegalArgumentException e) {
-                    System.out.println(e.getMessage());
+//                    System.out.println(e.getMessage());
                 }
                 if (revision != null) {
                     consumer.accept(revision);
@@ -89,28 +104,10 @@ public class App {
     }
 
 
-    void sanityCheck(String graphPath, String inputRevisionPath) throws Exception {
-        graph = new Graph(graphPath);
-        AtomicInteger nrRev = new AtomicInteger(0);
-        AtomicInteger nrRevWithRoot = new AtomicInteger(0);
-        readInputRevisions(inputRevisionPath, (revision) -> {
-            nrRev.incrementAndGet();
-            try {
-                fetchRootDirectory(revision.getNodeId());
-                nrRevWithRoot.incrementAndGet();
-            } catch (Exception e) {
-                System.err.println(e.getMessage());
-            }
-        });
-        System.out.println("number of revisions: " + nrRev.get());
-        System.out.println("number of revisions with root directory: " + nrRevWithRoot.get());
-    }
-
-
     public static void main(String[] args) throws Exception {
         String graphPath = args[0];
         String inputRevisionPath = args[1];
-        new App().execute(graphPath, inputRevisionPath);
-//        new App().sanityCheck(graphPath, inputRevisionPath);
+        String outputPath = args[2];
+        new App().execute(graphPath, inputRevisionPath, outputPath);
     }
 }

@@ -16,14 +16,14 @@ First download the revision file that denotes all revisions (and their
 timestamp) for which we want to compute the diff
 
 ```bash
-wget -O revisions.txt "https://seafile.ifi.uzh.ch/f/f666a345b42340eea7bd/?dl=1"
+wget -O revisions.txt "https://seafile.ifi.uzh.ch/f/a5a30f813f6e40f59458/?dl=1"
 ```
 
 Now the differ can be executed as follows.
 
 ```bash
 java -Xmx5G -cp target/swhdiff-*.jar \
-  ch.uzh.ifi.swhdiff.App <GRAPH_BASEPATH> <REVISION_PATH>
+  ch.uzh.ifi.swhdiff.App <GRAPH_BASEPATH> <REVISION_PATH> <OUTPUT_PATH>
 ```
 
 Where:
@@ -31,7 +31,7 @@ Where:
 - REVISION_PATH denotes the path to the file that contains all revisions and
   their timestamps in the format "<SWH-PID> <timestamp>". This data can be
   computed with query Q1 from below or downloaded directly as shown above.
-
+- OUTPUT_PATH denotes the file to which the dataset is written
 
 ## Queries
 

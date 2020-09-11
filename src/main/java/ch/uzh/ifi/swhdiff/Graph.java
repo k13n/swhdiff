@@ -80,12 +80,13 @@ public class Graph {
         long dst;
         while ((dst = it.nextLong()) >= 0) {
             if (nodeType.isEmpty() || nodeTypesMap.getType(dst) == nodeType.get()) {
-                int label = (int) it.label().get();
-                int missing = (1 << it.label().fixedWidth()) - 1;
-                if (label == missing) {
+                int[] labels = (int[]) it.label().get();
+                if (labels.length == 0) {
                     System.err.println("Expected a label between nodes ("+srcNode+","+dst+")");
                 } else {
-                    callback.accept(new LabelledEdge(srcNode, dst, label));
+                    for (int label : labels) {
+                        callback.accept(new LabelledEdge(srcNode, dst, label));
+                    }
                 }
             }
         }
