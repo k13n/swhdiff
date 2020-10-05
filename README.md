@@ -101,8 +101,8 @@ parent_child_commits(old_dir, new_dir, path, committer_date, commit_id) AS (
       JOIN revision r1 ON r1.id = rh.parent_id
       JOIN revision r2 ON r2.id = rh.id
     WHERE
-      r1.id = '\x155c64cafd23684d551a2a92746afdb68a09a907'::sha1_git AND
-      r2.id = '\x01714ff5fd94a846f7dc3456a52e6f2dcd36ca0b'::sha1_git
+      r1.id = '\xe4e92cd4b9b2fa59f4add1e928ea09b757cb4212'::sha1_git AND
+      r2.id = '\x75f03f3ae06b146e34c4ba4fb2d4b9cfdfffc07d'::sha1_git
   )
 ),
 base(old_dir, new_dir, path, committer_date, commit_id) AS (
@@ -146,14 +146,15 @@ base(old_dir, new_dir, path, committer_date, commit_id) AS (
       JOIN directory_entry_dir ded2 ON ded2.id = ANY(d2.dir_entries)
     WHERE
       b.old_dir IS NULL
-      OR NOT EXISTS (
+      OR (b.old_dir IS NOT NULL AND NOT EXISTS (
         SELECT *
         FROM
           directory d1
-          JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+          JOIN directory_entry_dir ded1 ON ded1.id = ANY(d1.dir_entries)
         WHERE
           d1.id = b.old_dir
-      )
+          AND ded2.Name = ded1.Name
+      ))
     UNION ALL
     -- (old_dir, NULL) represents that old_dir was deleted in this
     -- new commit. Collect all deleted files.
@@ -169,16 +170,19 @@ base(old_dir, new_dir, path, committer_date, commit_id) AS (
       JOIN directory_entry_dir ded1 ON ded1.id = ANY(d1.dir_entries)
     WHERE
       b.new_dir IS NULL
-      OR NOT EXISTS (
+      OR (b.new_dir IS NOT NULL AND NOT EXISTS (
         SELECT *
         FROM
           directory d2
-          JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+          JOIN directory_entry_dir ded2 ON ded2.id = ANY(d2.dir_entries)
         WHERE
           d2.id = b.new_dir
-      )
+          AND ded2.Name = ded1.Name
+      ))
   )
 )
+-- select * from base order by path;
+-- -- SELECT DISTINCT path, committer_date, commit_id
 SELECT DISTINCT *
 FROM (
   -- (path, commiter_date, commit_id, 'update') represents that path
@@ -195,7 +199,9 @@ FROM (
     JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
     JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
   WHERE
-    def1.Name = def2.Name
+    base.old_dir IS NOT NULL
+    AND base.new_dir IS NOT NULL
+    AND def1.Name = def2.Name
     AND def1.Id != def2.Id
   UNION ALL
   -- (path, commiter_date, commit_id, 'create') represents that path
@@ -209,15 +215,20 @@ FROM (
     base
     JOIN directory d2 ON d2.id = base.new_dir
     JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
-  WHERE NOT EXISTS (
-      SELECT *
-      FROM
-        directory d1
-        JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
-      WHERE
-        d1.id = base.old_dir
-        AND def2.Name = def1.Name
-  )
+  WHERE
+    base.new_dir IS NOT NULL
+    AND (
+      base.old_dir IS NULL
+      OR (base.old_dir IS NOT NULL AND NOT EXISTS (
+        SELECT *
+        FROM
+          directory d1
+          JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
+        WHERE
+          d1.id = base.old_dir
+          AND def1.Name = def2.Name
+      ))
+    )
   UNION ALL
   -- (path, commiter_date, commit_id, 'delete') represents that path
   -- was deleted in commit_id at commit_date
@@ -230,15 +241,20 @@ FROM (
     base
     JOIN directory d1 ON d1.id = base.old_dir
     JOIN directory_entry_file def1 ON def1.id = ANY(d1.file_entries)
-  WHERE NOT EXISTS (
-      SELECT *
-      FROM
-        directory d2
-        JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
-      WHERE
-        d2.id = base.new_dir
-        AND def1.Name = def2.Name
-  )
+  WHERE
+    base.old_dir IS NOT NULL
+    AND (
+      base.new_dir IS NULL
+      OR (base.new_dir IS NOT NULL AND NOT EXISTS (
+        SELECT *
+        FROM
+          directory d2
+          JOIN directory_entry_file def2 ON def2.id = ANY(d2.file_entries)
+        WHERE
+          d2.id = base.new_dir
+          AND def2.Name = def1.Name
+      ))
+    )
 ) tmp
 ORDER BY tmp.committer_date, tmp.path;
 ```
