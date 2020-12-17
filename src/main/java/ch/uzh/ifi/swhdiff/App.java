@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -25,28 +27,35 @@ public class App {
         graph = new Graph(graphPath);
         Differ differ = new Differ(graph);
 
-        readInputRevisions(inputRevisionPath, (revision -> {
-            Consumer<String> diffCallback = path -> {
+        BiConsumer<Revision, HashSet<String>> printer = (revision, paths) -> {
+            for (String path : paths)  {
                 try {
                     path = sanitizePath(path);
-                    fw.write(String.format("%s;%d;%s\n", path, revision.getTimestamp(), revision.getSwhPid().toString()));
+                    // cut of the swh:1:rev: prefix of length 10
+                    int prefixLen = 10;
+                    String hash = revision.getSwhPid().getSwhPID().substring(prefixLen);
+                    fw.write(String.format("%s;%d;%s;%s\n", path, revision.getTimestamp(), hash, revision.getRepositoryIds()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            };
+            }
+        };
 
+        readInputRevisions(inputRevisionPath, (revision -> {
+            HashSet<String> paths = new HashSet<>();
             try {
                 long revRootDirId = fetchRootDirectory(revision.getNodeId());
                 var parents = fetchParentRevisions(revision.getSwhPid());
                 if (parents.isEmpty()) {
-                    differ.diff(revRootDirId, NULL_DIR, diffCallback);
+                    differ.diff(revRootDirId, NULL_DIR, paths::add);
                 } else {
                     for (long parentRevId : parents) {
 //                        System.out.format("diff(rev: %s, par: %s)\n", graph.getSwhPID(revision.getNodeId()), graph.getSwhPID(parentRevId));
                         long parentRevRootDir = fetchRootDirectory(parentRevId);
-                        differ.diff(revRootDirId, parentRevRootDir, diffCallback);
+                        differ.diff(revRootDirId, parentRevRootDir, paths::add);
                     }
                 }
+                printer.accept(revision, paths);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -69,11 +78,12 @@ public class App {
             stream.forEach((line) -> {
                 Revision revision = null;
                 try {
-                    String[] splits = line.split(" ");
-                    SwhPID pid = new SwhPID(splits[0]);
+                    String[] splits = line.split(";");
+                    SwhPID pid = new SwhPID("swh:1:rev:"+splits[0]);
                     long nodeId = graph.getNodeId(pid);
                     long timestamp = Long.parseLong(splits[1]);
-                    revision = new Revision(pid, nodeId, timestamp);
+                    String repositoryIds = splits[2];
+                    revision = new Revision(pid, nodeId, timestamp, repositoryIds);
                 } catch (IllegalArgumentException e) {
 //                    System.out.println(e.getMessage());
                 }

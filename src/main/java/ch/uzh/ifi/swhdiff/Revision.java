@@ -6,11 +6,13 @@ public class Revision {
     private final SwhPID swhPid;
     private final long nodeId;
     private final long timestamp;
+    private final String repositoryIds;
 
-    public Revision(SwhPID swhPid, long nodeId, long timestamp) {
+    public Revision(SwhPID swhPid, long nodeId, long timestamp, String repositoryIds) {
         this.swhPid = swhPid;
         this.nodeId = nodeId;
         this.timestamp = timestamp;
+        this.repositoryIds = repositoryIds;
     }
 
     public long getTimestamp() {
@@ -23,5 +25,9 @@ public class Revision {
 
     public long getNodeId() {
         return nodeId;
+    }
+
+    public String getRepositoryIds() {
+        return repositoryIds;
     }
 }
