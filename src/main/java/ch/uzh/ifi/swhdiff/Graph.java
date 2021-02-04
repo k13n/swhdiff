@@ -6,9 +6,9 @@ import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.util.PermutedFrontCodedStringList;
 import org.softwareheritage.graph.Node;
-import org.softwareheritage.graph.SwhPID;
-import org.softwareheritage.graph.backend.NodeIdMap;
-import org.softwareheritage.graph.backend.NodeTypesMap;
+import org.softwareheritage.graph.SWHID;
+import org.softwareheritage.graph.maps.NodeIdMap;
+import org.softwareheritage.graph.maps.NodeTypesMap;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -118,13 +118,13 @@ public class Graph {
     }
 
 
-    public long getNodeId(SwhPID pid) {
+    public long getNodeId(SWHID pid) {
         return nodeIdMap.getNodeId(pid);
     }
 
 
-    public SwhPID getSwhPID(long nodeId) {
-        return nodeIdMap.getSwhPID(nodeId);
+    public SWHID getSWHID(long nodeId) {
+        return nodeIdMap.getSWHID(nodeId);
     }
 
 

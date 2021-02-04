@@ -1,15 +1,15 @@
 package ch.uzh.ifi.swhdiff;
 
-import org.softwareheritage.graph.SwhPID;
+import org.softwareheritage.graph.SWHID;
 
 public class Revision {
-    private final SwhPID swhPid;
+    private final SWHID SWHID;
     private final long nodeId;
     private final long timestamp;
     private final String repositoryIds;
 
-    public Revision(SwhPID swhPid, long nodeId, long timestamp, String repositoryIds) {
-        this.swhPid = swhPid;
+    public Revision(SWHID SWHID, long nodeId, long timestamp, String repositoryIds) {
+        this.SWHID = SWHID;
         this.nodeId = nodeId;
         this.timestamp = timestamp;
         this.repositoryIds = repositoryIds;
@@ -19,8 +19,8 @@ public class Revision {
         return timestamp;
     }
 
-    public SwhPID getSwhPid() {
-        return swhPid;
+    public SWHID getSWHID() {
+        return SWHID;
     }
 
     public long getNodeId() {

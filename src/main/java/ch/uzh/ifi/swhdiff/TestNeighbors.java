@@ -5,7 +5,7 @@ import it.unimi.dsi.big.webgraph.labelling.ArcLabelledImmutableGraph;
 import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.util.PermutedFrontCodedStringList;
-import org.softwareheritage.graph.backend.NodeIdMap;
+import org.softwareheritage.graph.maps.NodeIdMap;
 
 import java.lang.System;
 import java.util.Base64;
@@ -23,14 +23,14 @@ class TestNeighbors {
         PermutedFrontCodedStringList labelMap = (PermutedFrontCodedStringList) BinIO.loadObject(path + "-labels.fcl");
 
         long dst;
-        System.out.format("Source Node: %d (%s)\n\n", src, nodeIdMap.getSwhPID(src));
+        System.out.format("Source Node: %d (%s)\n\n", src, nodeIdMap.getSWHID(src));
 
         System.out.println("BVGraph:");
         int totalbv = 0;
         long startTime = System.currentTimeMillis();
         var it1 = graph1.successors(src);
         while ((dst = it1.nextLong()) >= 0) {
-            System.out.format("%d (%s)\n", dst, nodeIdMap.getSwhPID(dst));
+            System.out.format("%d (%s)\n", dst, nodeIdMap.getSWHID(dst));
             totalbv++;
         }
         long endTime = System.currentTimeMillis();
@@ -48,7 +48,7 @@ class TestNeighbors {
             if (labelId != missing) {
                 label = new String(Base64.getDecoder().decode(labelMap.get(labelId).toString()));
             }
-            System.out.format("%d (%s, labelId: %d, labelString: '%s')\n", dst, nodeIdMap.getSwhPID(dst),
+            System.out.format("%d (%s, labelId: %d, labelString: '%s')\n", dst, nodeIdMap.getSWHID(dst),
                     labelId, label);
             totallabel++;
         }

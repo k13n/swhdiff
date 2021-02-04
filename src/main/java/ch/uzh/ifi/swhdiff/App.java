@@ -1,7 +1,7 @@
 package ch.uzh.ifi.swhdiff;
 
 import org.softwareheritage.graph.Node;
-import org.softwareheritage.graph.SwhPID;
+import org.softwareheritage.graph.SWHID;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -33,7 +33,7 @@ public class App {
                     path = sanitizePath(path);
                     // cut of the swh:1:rev: prefix of length 10
                     int prefixLen = 10;
-                    String hash = revision.getSwhPid().getSwhPID().substring(prefixLen);
+                    String hash = revision.getSWHID().getSWHID().substring(prefixLen);
                     fw.write(String.format("%s;%d;%s;%s\n", path, revision.getTimestamp(), hash, revision.getRepositoryIds()));
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -45,12 +45,12 @@ public class App {
             HashSet<String> paths = new HashSet<>();
             try {
                 long revRootDirId = fetchRootDirectory(revision.getNodeId());
-                var parents = fetchParentRevisions(revision.getSwhPid());
+                var parents = fetchParentRevisions(revision.getSWHID());
                 if (parents.isEmpty()) {
                     differ.diff(revRootDirId, NULL_DIR, paths::add);
                 } else {
                     for (long parentRevId : parents) {
-//                        System.out.format("diff(rev: %s, par: %s)\n", graph.getSwhPID(revision.getNodeId()), graph.getSwhPID(parentRevId));
+//                        System.out.format("diff(rev: %s, par: %s)\n", graph.getSWHID(revision.getNodeId()), graph.getSWHID(parentRevId));
                         long parentRevRootDir = fetchRootDirectory(parentRevId);
                         differ.diff(revRootDirId, parentRevRootDir, paths::add);
                     }
@@ -79,7 +79,7 @@ public class App {
                 Revision revision = null;
                 try {
                     String[] splits = line.split(";");
-                    SwhPID pid = new SwhPID("swh:1:rev:"+splits[0]);
+                    SWHID pid = new SWHID("swh:1:rev:"+splits[0]);
                     long nodeId = graph.getNodeId(pid);
                     long timestamp = Long.parseLong(splits[1]);
                     String repositoryIds = splits[2];
@@ -95,7 +95,7 @@ public class App {
     }
 
 
-    private ArrayList<Long> fetchParentRevisions(SwhPID revisionPid) {
+    private ArrayList<Long> fetchParentRevisions(SWHID revisionPid) {
         // in the compressed graph a revision points to its parent, not the other way around
         long revisionId = graph.getNodeId(revisionPid);
         return graph.successors(revisionId, Optional.of(Node.Type.REV));
@@ -105,10 +105,10 @@ public class App {
     private long fetchRootDirectory(long revisionNodeId) {
         var neighbors = graph.successors(revisionNodeId, Optional.of(Node.Type.DIR));
         if (neighbors.size() != 1) {
-            var swhPid = graph.getSwhPID(revisionNodeId);
+            var SWHID = graph.getSWHID(revisionNodeId);
             throw new IllegalStateException(String.format(
                     "Revision %s (ID %d) points to %d root directories (1 expected)",
-                    swhPid.getSwhPID(), revisionNodeId, neighbors.size()));
+                    SWHID.getSWHID(), revisionNodeId, neighbors.size()));
         }
         return neighbors.get(0);
     }
