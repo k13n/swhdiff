@@ -21,10 +21,12 @@ public class App {
     private Graph graph;
 
 
-    void execute(String graphPath, String inputRevisionPath, String outputPath) throws IOException, ClassNotFoundException {
+    void execute(String graphPath, String outputPath) throws IOException, ClassNotFoundException {
         FileWriter fw = new FileWriter(outputPath);
 
         graph = new Graph(graphPath);
+        graph.readRevisions();
+
         Differ differ = new Differ(graph);
 
         BiConsumer<Revision, HashSet<String>> printer = (revision, paths) -> {
@@ -41,6 +43,7 @@ public class App {
             }
         };
 
+        String inputRevisionPath = "TODO";
         readInputRevisions(inputRevisionPath, (revision -> {
             HashSet<String> paths = new HashSet<>();
             try {
@@ -115,9 +118,13 @@ public class App {
 
 
     public static void main(String[] args) throws Exception {
-        String graphPath = args[0];
-        String inputRevisionPath = args[1];
-        String outputPath = args[2];
-        new App().execute(graphPath, inputRevisionPath, outputPath);
+        // String graphPath = args[0];
+        // String inputRevisionPath = args[1];
+        // String outputPath = args[2];
+        // new App().execute(graphPath, inputRevisionPath, outputPath);
+        String graphPath = "/storage/swh_gitlab_100k/compress/gitlab-100k";
+        String outputPath = "dataset.csv";
+        new App().execute(graphPath, outputPath);
+
     }
 }

@@ -4,7 +4,7 @@ import it.unimi.dsi.big.webgraph.BVGraph;
 import it.unimi.dsi.big.webgraph.labelling.ArcLabelledImmutableGraph;
 import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import it.unimi.dsi.fastutil.io.BinIO;
-import it.unimi.dsi.util.PermutedFrontCodedStringList;
+import it.unimi.dsi.big.util.FrontCodedStringBigList;
 import org.softwareheritage.graph.Node;
 import org.softwareheritage.graph.SWHID;
 import org.softwareheritage.graph.maps.NodeIdMap;
@@ -26,18 +26,20 @@ public class Graph {
     /** Mapping long id &rarr; node types */
     private NodeTypesMap nodeTypesMap;
     /** Map to translate IDs to edge-labels **/
-    private PermutedFrontCodedStringList labelMap;
+    private FrontCodedStringBigList labelMap;
     /** Mapping between SWH-PID and node ids **/
     private NodeIdMap nodeIdMap;
-
+    /** Revision timestamps **/
+    private long[] revisionTimestamps;
 
     public Graph(String path) throws IOException, ClassNotFoundException {
         graph = BVGraph.loadMapped(path);
         graphTransposed = BVGraph.loadMapped(path + "-transposed");
         graphLabelled = BitStreamArcLabelledImmutableGraph.load(path + "-labelled");
         nodeTypesMap = new NodeTypesMap(path);
-        labelMap = (PermutedFrontCodedStringList) BinIO.loadObject(path + "-labels.fcl");
+        labelMap = (FrontCodedStringBigList) BinIO.loadObject(path + "-labels.fcl");
         nodeIdMap = new NodeIdMap(path, graph.numNodes());
+        revisionTimestamps = (long[]) BinIO.loadLongs(path + "-revision_timestamps.bin");
     }
 
 
@@ -135,5 +137,19 @@ public class Graph {
 
     public void close() throws IOException {
         nodeIdMap.close();
+    }
+
+
+    public void readRevisions() {
+        var it = graphLabelled.nodeIterator();
+        while (it.hasNext()) {
+            long nodeId = it.nextLong();
+            Node.Type type = getType(nodeId);
+            if (type == Node.Type.REV) {
+              SWHID id = getSWHID(nodeId);
+              long timestamp = revisionTimestamps[(int) nodeId];
+              System.out.println(id.getSWHID() + " " + timestamp);
+            }
+        }
     }
 }
