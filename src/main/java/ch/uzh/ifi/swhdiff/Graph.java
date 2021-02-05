@@ -4,6 +4,7 @@ import it.unimi.dsi.big.webgraph.BVGraph;
 import it.unimi.dsi.big.webgraph.labelling.ArcLabelledImmutableGraph;
 import it.unimi.dsi.big.webgraph.labelling.BitStreamArcLabelledImmutableGraph;
 import it.unimi.dsi.fastutil.io.BinIO;
+import it.unimi.dsi.fastutil.BigArrays;
 import it.unimi.dsi.big.util.FrontCodedStringBigList;
 import org.softwareheritage.graph.Node;
 import org.softwareheritage.graph.SWHID;
@@ -30,7 +31,7 @@ public class Graph {
     /** Mapping between SWH-PID and node ids **/
     private NodeIdMap nodeIdMap;
     /** Revision timestamps **/
-    private long[] revisionTimestamps;
+    private long[][] revisionTimestamps;
 
     public Graph(String path) throws IOException, ClassNotFoundException {
         graph = BVGraph.loadMapped(path);
@@ -39,7 +40,7 @@ public class Graph {
         nodeTypesMap = new NodeTypesMap(path);
         labelMap = (FrontCodedStringBigList) BinIO.loadObject(path + "-labels.fcl");
         nodeIdMap = new NodeIdMap(path, graph.numNodes());
-        revisionTimestamps = (long[]) BinIO.loadLongs(path + "-revision_timestamps.bin");
+        revisionTimestamps = (long[][]) BinIO.loadLongsBig(path + "-revision_timestamps.bin");
     }
 
 
@@ -135,10 +136,14 @@ public class Graph {
     }
 
 
+    public long getTimestamp(long nodeId) {
+        return BigArrays.get(revisionTimestamps, nodeId);
+    }
+
+
     public void close() throws IOException {
         nodeIdMap.close();
     }
-
 
     public void readRevisions() {
         var it = graphLabelled.nodeIterator();
@@ -147,8 +152,8 @@ public class Graph {
             Node.Type type = getType(nodeId);
             if (type == Node.Type.REV) {
               SWHID id = getSWHID(nodeId);
-              long timestamp = revisionTimestamps[(int) nodeId];
-              System.out.println(id.getSWHID() + " " + timestamp);
+              long timestamp = getTimestamp(nodeId);
+              System.out.println(id.getSWHID() + " " + timestamp + " " + nodeId);
             }
         }
     }
