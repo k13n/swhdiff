@@ -13,6 +13,11 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+
+
 
 import static ch.uzh.ifi.swhdiff.Differ.NULL_DIR;
 
@@ -21,11 +26,14 @@ public class App {
     private Graph graph;
 
 
-    void execute(String graphPath, String outputPath) throws IOException, ClassNotFoundException {
+    void execute(String inputRevisionPath, String graphPath, String outputPath)
+                 throws IOException, ClassNotFoundException {
+
+        log("Started diffing");
         FileWriter fw = new FileWriter(outputPath);
 
         graph = new Graph(graphPath);
-        graph.readRevisions();
+        log("Graph loading complete");
 
         Differ differ = new Differ(graph);
 
@@ -36,24 +44,24 @@ public class App {
                     // cut of the swh:1:rev: prefix of length 10
                     int prefixLen = 10;
                     String hash = revision.getSWHID().getSWHID().substring(prefixLen);
-                    fw.write(String.format("%s;%d;%s;%s\n", path, revision.getTimestamp(), hash, revision.getRepositoryIds()));
+                    fw.write(String.format("%s;%d;%s;%s\n", path, revision.getTimestamp(),
+                          hash, revision.getNodeId()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         };
 
-        String inputRevisionPath = "TODO";
+        long[] counter = { 0 };
         readInputRevisions(inputRevisionPath, (revision -> {
             HashSet<String> paths = new HashSet<>();
             try {
                 long revRootDirId = fetchRootDirectory(revision.getNodeId());
-                var parents = fetchParentRevisions(revision.getSWHID());
+                var parents = fetchParentRevisions(revision);
                 if (parents.isEmpty()) {
                     differ.diff(revRootDirId, NULL_DIR, paths::add);
                 } else {
                     for (long parentRevId : parents) {
-//                        System.out.format("diff(rev: %s, par: %s)\n", graph.getSWHID(revision.getNodeId()), graph.getSWHID(parentRevId));
                         long parentRevRootDir = fetchRootDirectory(parentRevId);
                         differ.diff(revRootDirId, parentRevRootDir, paths::add);
                     }
@@ -61,6 +69,10 @@ public class App {
                 printer.accept(revision, paths);
             } catch (Exception e) {
                 e.printStackTrace();
+            }
+            // track progress
+            if (++counter[0] % 1000 == 0) {
+              log("Processed revision: " + counter[0]);
             }
         }));
 
@@ -81,12 +93,11 @@ public class App {
             stream.forEach((line) -> {
                 Revision revision = null;
                 try {
-                    String[] splits = line.split(";");
-                    SWHID pid = new SWHID("swh:1:rev:"+splits[0]);
-                    long nodeId = graph.getNodeId(pid);
+                    String[] splits = line.split(" ");
+                    SWHID pid = new SWHID(splits[0]);
                     long timestamp = Long.parseLong(splits[1]);
-                    String repositoryIds = splits[2];
-                    revision = new Revision(pid, nodeId, timestamp, repositoryIds);
+                    long nodeId = Long.parseLong(splits[2]);
+                    revision = new Revision(pid, nodeId, timestamp, null);
                 } catch (IllegalArgumentException e) {
 //                    System.out.println(e.getMessage());
                 }
@@ -98,10 +109,9 @@ public class App {
     }
 
 
-    private ArrayList<Long> fetchParentRevisions(SWHID revisionPid) {
+    private ArrayList<Long> fetchParentRevisions(Revision revision) {
         // in the compressed graph a revision points to its parent, not the other way around
-        long revisionId = graph.getNodeId(revisionPid);
-        return graph.successors(revisionId, Optional.of(Node.Type.REV));
+        return graph.successors(revision.getNodeId(), Optional.of(Node.Type.REV));
     }
 
 
@@ -117,14 +127,20 @@ public class App {
     }
 
 
+    private void log(String msg) {
+      String date = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
+      System.out.printf("[%s] %s\n", date, msg);
+    }
+
     public static void main(String[] args) throws Exception {
         // String graphPath = args[0];
         // String inputRevisionPath = args[1];
         // String outputPath = args[2];
         // new App().execute(graphPath, inputRevisionPath, outputPath);
+        String revisionPath = "/storage/swh_gitlab_100k/revisions.txt";
         String graphPath = "/storage/swh_gitlab_100k/compress/gitlab-100k";
-        String outputPath = "dataset.csv";
-        new App().execute(graphPath, outputPath);
+        String outputPath = "/storage/swh_gitlab_100k/dataset.csv";
+        new App().execute(revisionPath, graphPath, outputPath);
 
     }
 }

@@ -34,7 +34,7 @@ public class RevisionReader {
 
         for (long nodeId = 0; nodeId < nrNodes; ++nodeId) {
             Node.Type type = nodeTypesMap.getType(nodeId);
-            if (true || type == Node.Type.REV) {
+            if (type == Node.Type.REV) {
               SWHID id = nodeIdMap.getSWHID(nodeId);
               long timestamp = BigArrays.get(revisionTimestamps, nodeId);
               System.out.println(id.getSWHID() + " " + timestamp + " " + nodeId);
