@@ -13,7 +13,7 @@ public class Differ {
 
     /** buffer that will hold the root-to-leaf edge labels **/
     private static final int MAX_PATH_LEN = 1000;
-    private final int[] buffer = new int[MAX_PATH_LEN];
+    private final long[] buffer = new long[MAX_PATH_LEN];
     /** graph to traverse **/
     private final Graph graph;
 

@@ -3,9 +3,9 @@ package ch.uzh.ifi.swhdiff;
 public class LabelledEdge {
     private final long src;
     private final long dst;
-    private final int label;
+    private final long label;
 
-    public LabelledEdge(long src, long dst, int label) {
+    public LabelledEdge(long src, long dst, long label) {
         this.src = src;
         this.dst = dst;
         this.label = label;
@@ -19,7 +19,7 @@ public class LabelledEdge {
         return src;
     }
 
-    public int getLabel() {
+    public long getLabel() {
         return label;
     }
 }

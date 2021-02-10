@@ -10,6 +10,7 @@ import org.softwareheritage.graph.Node;
 import org.softwareheritage.graph.SWHID;
 import org.softwareheritage.graph.maps.NodeIdMap;
 import org.softwareheritage.graph.maps.NodeTypesMap;
+import org.softwareheritage.graph.labels.DirEntry;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -83,12 +84,12 @@ public class Graph {
         long dst;
         while ((dst = it.nextLong()) >= 0) {
             if (nodeType.isEmpty() || nodeTypesMap.getType(dst) == nodeType.get()) {
-                int[] labels = (int[]) it.label().get();
+                DirEntry[] labels = (DirEntry[]) it.label().get();
                 if (labels.length == 0) {
                     System.err.println("Expected a label between nodes ("+srcNode+","+dst+")");
                 } else {
-                    for (int label : labels) {
-                        callback.accept(new LabelledEdge(srcNode, dst, label));
+                    for (DirEntry label : labels) {
+                        callback.accept(new LabelledEdge(srcNode, dst, label.filenameId));
                     }
                 }
             }
@@ -131,7 +132,7 @@ public class Graph {
     }
 
 
-    public String getLabel(int labelId) {
+    public String getLabel(long labelId) {
         return new String(Base64.getDecoder().decode(labelMap.get(labelId).toString()));
     }
 
