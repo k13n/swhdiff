@@ -16,68 +16,107 @@ import java.util.stream.Stream;
 import java.time.ZonedDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-
-
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
 
 import static ch.uzh.ifi.swhdiff.Differ.NULL_DIR;
 
 
 public class App {
     private Graph graph;
+    private long totalNrRevisions = 35507702;
+    private AtomicLong counter = new AtomicLong(0);
+    private Scanner inputScanner;
+    private FileWriter outputWriter;
 
+    private class Worker implements Runnable {
+        private Differ differ;
 
-    void execute(String inputRevisionPath, String graphPath, String outputPath)
-                 throws IOException, ClassNotFoundException {
+        public Worker(Graph graph) {
+          this.differ = new Differ(graph);
+        }
 
-        log("Started diffing");
-        FileWriter fw = new FileWriter(outputPath);
-
-        graph = new Graph(graphPath);
-        log("Graph loading complete");
-
-        Differ differ = new Differ(graph);
-
-        BiConsumer<Revision, HashSet<String>> printer = (revision, paths) -> {
-            for (String path : paths)  {
+        @Override
+        public void run() {
+            HashSet<String> paths = new HashSet<>();
+            Revision revision = null;
+            while ((revision = readInputRevision()) != null) {
+                paths.clear();
                 try {
-                    path = sanitizePath(path);
-                    // cut of the swh:1:rev: prefix of length 10
-                    int prefixLen = 10;
-                    String hash = revision.getSWHID().getSWHID().substring(prefixLen);
-                    fw.write(String.format("%s;%d;%s;%s\n", path, revision.getTimestamp(),
-                          hash, revision.getNodeId()));
-                } catch (IOException e) {
+                    long revRootDirId = fetchRootDirectory(revision.getNodeId());
+                    var parents = fetchParentRevisions(revision);
+                    if (parents.isEmpty()) {
+                        differ.diff(revRootDirId, NULL_DIR, paths::add);
+                    } else {
+                        for (long parentRevId : parents) {
+                            long parentRevRootDir = fetchRootDirectory(parentRevId);
+                            differ.diff(revRootDirId, parentRevRootDir, paths::add);
+                        }
+                    }
+                    printOutput(revision, paths);
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }
-        };
-
-        long[] counter = { 0 };
-        readInputRevisions(inputRevisionPath, (revision -> {
-            HashSet<String> paths = new HashSet<>();
-            try {
-                long revRootDirId = fetchRootDirectory(revision.getNodeId());
-                var parents = fetchParentRevisions(revision);
-                if (parents.isEmpty()) {
-                    differ.diff(revRootDirId, NULL_DIR, paths::add);
-                } else {
-                    for (long parentRevId : parents) {
-                        long parentRevRootDir = fetchRootDirectory(parentRevId);
-                        differ.diff(revRootDirId, parentRevRootDir, paths::add);
-                    }
+                // track progress
+                if (counter.incrementAndGet() % 1000 == 0) {
+                  long nrProcessed = counter.get();
+                  double ratio = nrProcessed / (double) totalNrRevisions;
+                  log(String.format("Processed revisions %d/%d (%.3f)", nrProcessed,
+                        totalNrRevisions, ratio));
                 }
-                printer.accept(revision, paths);
-            } catch (Exception e) {
+            }
+        }
+    }
+
+
+    synchronized void printOutput(Revision revision, HashSet<String> paths) {
+        for (String path : paths)  {
+            try {
+                path = sanitizePath(path);
+                // cut of the swh:1:rev: prefix of length 10
+                int prefixLen = 10;
+                String hash = revision.getSWHID().getSWHID().substring(prefixLen);
+                outputWriter.write(String.format("%s;%d;%s;%s\n", path,
+                      revision.getTimestamp(), hash, revision.getNodeId()));
+            } catch (IOException e) {
                 e.printStackTrace();
             }
-            // track progress
-            if (++counter[0] % 1000 == 0) {
-              log("Processed revision: " + counter[0]);
-            }
-        }));
+        }
+    }
 
+    void execute(String inputRevisionPath, String graphPath, String outputPath, int nrThreads)
+                 throws IOException, ClassNotFoundException {
+
+        log("start the diff");
+        outputWriter = new FileWriter(outputPath);
+        inputScanner = new Scanner(new File(inputRevisionPath));
+
+        log("load graph");
+        graph = new Graph(graphPath);
+
+        log("start worker threads");
+        Thread[] differs = new Thread[nrThreads];
+        // initialize threads
+        for (int i = 0; i < nrThreads; ++i) {
+            differs[i] = new Thread(new Worker(graph));
+        }
+        // start threads
+        for (int i = 0; i < nrThreads; ++i) {
+            differs[i].start();
+        }
+        // join threads
+        for (int i = 0; i < nrThreads; ++i) {
+            try { differs[i].join(); }
+            catch (InterruptedException e) { e.printStackTrace(); }
+        }
+
+        log("diffing complete");
         graph.close();
-        fw.close();
+        inputScanner.close();
+        outputWriter.close();
     }
 
 
@@ -88,24 +127,22 @@ public class App {
         return path;
     }
 
-    private void readInputRevisions(String fileName, Consumer<Revision> consumer) throws IOException {
-        try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
-            stream.forEach((line) -> {
-                Revision revision = null;
-                try {
-                    String[] splits = line.split(" ");
-                    SWHID pid = new SWHID(splits[0]);
-                    long timestamp = Long.parseLong(splits[1]);
-                    long nodeId = Long.parseLong(splits[2]);
-                    revision = new Revision(pid, nodeId, timestamp, null);
-                } catch (IllegalArgumentException e) {
-//                    System.out.println(e.getMessage());
-                }
-                if (revision != null) {
-                    consumer.accept(revision);
-                }
-            });
+
+    synchronized private Revision readInputRevision() {
+        Revision revision = null;
+        try {
+            if (inputScanner.hasNextLine()) {
+                String line = inputScanner.nextLine();
+                String[] splits = line.split(" ");
+                SWHID pid = new SWHID(splits[0]);
+                long timestamp = Long.parseLong(splits[1]);
+                long nodeId = Long.parseLong(splits[2]);
+                revision = new Revision(pid, nodeId, timestamp, null);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        return revision;
     }
 
 
@@ -132,6 +169,7 @@ public class App {
       System.out.printf("[%s] %s\n", date, msg);
     }
 
+
     public static void main(String[] args) throws Exception {
         // String graphPath = args[0];
         // String inputRevisionPath = args[1];
@@ -140,7 +178,8 @@ public class App {
         String revisionPath = "/storage/swh_gitlab_100k/revisions.txt";
         String graphPath = "/storage/swh_gitlab_100k/compress/gitlab-100k";
         String outputPath = "/storage/swh_gitlab_100k/dataset.csv";
-        new App().execute(revisionPath, graphPath, outputPath);
+        int nrThreads = 1;
+        new App().execute(revisionPath, graphPath, outputPath, nrThreads);
 
     }
 }
