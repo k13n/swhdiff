@@ -5,7 +5,7 @@ import org.softwareheritage.graph.Node;
 import java.util.Base64;
 import java.util.List;
 import java.util.function.Consumer;
-
+import java.util.HashMap;
 
 public class Differ {
     /** invalid directory id **/
@@ -58,6 +58,14 @@ public class Differ {
 
         var children1 = graph.successorsLabelled(dir1, Node.Type.DIR, Node.Type.CNT);
         var children2 = graph.successorsLabelled(dir2, Node.Type.DIR, Node.Type.CNT);
+        HashMap<Long, LabelledEdge> children1map = new HashMap<>(children1.size());
+        HashMap<Long, LabelledEdge> children2map = new HashMap<>(children2.size());
+        for (var edge : children1) {
+          children1map.put(edge.getLabel(), edge);
+        }
+        for (var edge : children2) {
+          children2map.put(edge.getLabel(), edge);
+        }
 
         if (children1.isEmpty() && children2.isEmpty()) {
             // the current node is a leaf-node and can be emitted
@@ -67,7 +75,8 @@ public class Differ {
 
         for (var edge1 : children1) {
             buffer[depth] = edge1.getLabel();
-            var edge2 = find(children2, edge1);
+            // var edge2 = find(children2, edge1);
+            var edge2 = find(children2map, edge1);
             if (edge2 == null) {
                 // edge1 exists only in dir1
                 diff(edge1.getDst(), NULL_DIR, depth+1, callback);
@@ -77,8 +86,9 @@ public class Differ {
             }
         }
         for (var edge2 : children2) {
-            var edge1 = find(children1, edge2);
             buffer[depth] = edge2.getLabel();
+            // var edge1 = find(children1, edge2);
+            var edge1 = find(children1map, edge2);
             if (edge1 == null) {
                 // edge2 exists only in dir2
                 diff(NULL_DIR, edge2.getDst(), depth+1, callback);
@@ -101,6 +111,18 @@ public class Differ {
             }
         }
         return null;
+    }
+
+
+    /**
+     * Looks for an occurrence of an edge in a list of edges
+     *
+     * @param edges list of edges
+     * @param refEdge reference edge to find in edges
+     * @return the edge in edges that is equal to refEdge
+     */
+    private LabelledEdge find(HashMap<Long, LabelledEdge> edges, LabelledEdge refEdge) {
+        return edges.get(refEdge.getLabel());
     }
 
 

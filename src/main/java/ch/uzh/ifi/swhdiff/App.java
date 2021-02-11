@@ -99,7 +99,7 @@ public class App {
                     long nodeId = Long.parseLong(splits[2]);
                     revision = new Revision(pid, nodeId, timestamp, null);
                 } catch (IllegalArgumentException e) {
-//                    System.out.println(e.getMessage());
+                    // System.out.println(e.getMessage());
                 }
                 if (revision != null) {
                     consumer.accept(revision);
@@ -133,14 +133,9 @@ public class App {
     }
 
     public static void main(String[] args) throws Exception {
-        // String graphPath = args[0];
-        // String inputRevisionPath = args[1];
-        // String outputPath = args[2];
-        // new App().execute(graphPath, inputRevisionPath, outputPath);
-        String revisionPath = "/storage/swh_gitlab_100k/revisions.txt";
-        String graphPath = "/storage/swh_gitlab_100k/compress/gitlab-100k";
-        String outputPath = "/storage/swh_gitlab_100k/dataset.csv";
+        String graphPath = args[0];
+        String inputRevisionPath = args[1];
+        String outputPath = args[2];
         new App().execute(revisionPath, graphPath, outputPath);
-
     }
 }
